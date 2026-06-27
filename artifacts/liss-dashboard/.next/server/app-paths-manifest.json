@@ -1,6 +1,0 @@
-{
-  "/page": "app/page.js",
-  "/data-manager/page": "app/data-manager/page.js",
-  "/processing/page": "app/processing/page.js",
-  "/results/page": "app/results/page.js"
-}
