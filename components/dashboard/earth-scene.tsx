@@ -5,11 +5,11 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { Stars, OrbitControls, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 
-const EARTH_TEX = "https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg";
-const EARTH_NORMAL = "https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_normal_2048.jpg";
-const EARTH_SPEC = "https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_specular_2048.jpg";
-const EARTH_CLOUDS = "https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_clouds_1024.png";
-const MOON_TEX = "https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/moon_1024.jpg";
+const EARTH_TEX = "/planets/earth_atmos.jpg";
+const EARTH_NORMAL = "/planets/earth_normal.jpg";
+const EARTH_SPEC = "/planets/earth_spec.jpg";
+const EARTH_CLOUDS = "/planets/earth_clouds.png";
+const MOON_TEX = "/planets/moon.jpg";
 
 function Earth() {
   const earthRef = useRef<THREE.Mesh>(null);
@@ -191,7 +191,7 @@ function SceneContents() {
   return (
     <>
       <ambientLight intensity={0.14} />
-      <directionalLight position={[12, 6, 8]} intensity={1.9} color="#ffe8c0" castShadow />
+      <directionalLight position={[12, 6, 8]} intensity={1.9} color="#ffe8c0" />
       <pointLight position={[-8, -4, -8]} intensity={0.1} color="#2244aa" />
 
       <Stars radius={350} depth={80} count={6000} factor={4} saturation={0.1} fade speed={0.4} />
@@ -225,8 +225,7 @@ export function EarthScene() {
   return (
     <Canvas
       camera={{ position: [0, 3, 9], fov: 42 }}
-      shadows
-      gl={{ antialias: true, alpha: true }}
+      gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
       style={{ background: "transparent" }}
     >
       <SceneContents />

@@ -1,7 +1,4 @@
 {
-  "/results/page": "app/results/page.js",
   "/page": "app/page.js",
-  "/data-manager/page": "app/data-manager/page.js",
-  "/comparison/page": "app/comparison/page.js",
-  "/processing/page": "app/processing/page.js"
+  "/data-manager/page": "app/data-manager/page.js"
 }
