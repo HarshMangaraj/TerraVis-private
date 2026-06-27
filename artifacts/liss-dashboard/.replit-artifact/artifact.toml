@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "LISS-IV AI Platform"
+version = "1.0.0"
+id = "artifacts/liss-dashboard"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24547
+
+[services.development]
+run = "pnpm --filter @workspace/liss-dashboard run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/liss-dashboard", "run", "build" ]
+publicDir = "artifacts/liss-dashboard/out"
+serve = "static"
+
+[services.env]
+PORT = "24547"
+BASE_PATH = "/"
