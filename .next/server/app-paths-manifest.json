@@ -1,4 +1,7 @@
 {
-  "/page": "app/page.js",
-  "/data-manager/page": "app/data-manager/page.js"
+  "/monitoring/page": "app/monitoring/page.js",
+  "/models/reconstruction/page": "app/models/reconstruction/page.js",
+  "/models/manager/page": "app/models/manager/page.js",
+  "/models/fusion/page": "app/models/fusion/page.js",
+  "/models/cloud-detection/page": "app/models/cloud-detection/page.js"
 }

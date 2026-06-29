@@ -1,130 +1,295 @@
 import { Shell } from "@/components/layout/shell";
-import { Cpu, Play, Pause, RotateCcw, Clock, CheckCircle2, AlertTriangle } from "lucide-react";
+import { 
+  Cpu, Play, Pause, RotateCcw, Clock, CheckCircle2, AlertTriangle,
+  Database, Cloud, Scissors, BarChart3, Download, Wand2,
+  MapPin, Calendar, HardDrive, Zap, Layers, Maximize2
+} from "lucide-react";
 
-const jobs = [
-  { id: "JOB-8841", scene: "Brahmaputra_Valley_T44", stage: "Reconstruction", progress: 78, eta: "4 min", status: "running" as const, gpu: "A100-1", startedAt: "12:04:22" },
-  { id: "JOB-8840", scene: "Kaziranga_NP_R02", stage: "Cloud Detection", progress: 95, eta: "1 min", status: "running" as const, gpu: "A100-1", startedAt: "12:01:14" },
-  { id: "JOB-8839", scene: "Mizoram_Hills_Q88", stage: "Fusion", progress: 42, eta: "11 min", status: "running" as const, gpu: "A100-2", startedAt: "12:06:03" },
-  { id: "JOB-8838", scene: "Nagaland_Central_A12", stage: "Post-processing", progress: 60, eta: "3 min", status: "running" as const, gpu: "A100-2", startedAt: "12:03:55" },
-  { id: "JOB-8837", scene: "Shillong_Plateau_E18", stage: "Completed", progress: 100, eta: "—", status: "done" as const, gpu: "A100-1", startedAt: "11:58:40" },
-  { id: "JOB-8836", scene: "Imphal_Basin_S07", stage: "Failed: OOM", progress: 31, eta: "—", status: "failed" as const, gpu: "A100-2", startedAt: "11:55:11" },
-  { id: "JOB-8835", scene: "Tripura_South_F19", stage: "Completed", progress: 100, eta: "—", status: "done" as const, gpu: "A100-1", startedAt: "11:50:28" },
-  { id: "JOB-8834", scene: "Sikkim_North_X41", stage: "In Queue", progress: 0, eta: "~18 min", status: "queued" as const, gpu: "—", startedAt: "—" },
+const datasetInfo = {
+  name: "Brahmaputra_Valley_T44",
+  source: "Sentinel-2 L1C",
+  date: "2026-06-15",
+  size: "2.4 GB",
+  bands: "13 (RGB + NIR + SWIR)",
+  resolution: "10m",
+  cloudCoverage: "23.5%",
+};
+
+const pipelineSteps = [
+  { id: "dataset", label: "Dataset Loaded", status: "done" as const, icon: Database, time: "12:04:22", duration: "2s" },
+  { id: "radiometric", label: "Radiometric Correction", status: "done" as const, icon: Wand2, time: "12:04:25", duration: "3s" },
+  { id: "geometric", label: "Geometric Correction", status: "done" as const, icon: Maximize2, time: "12:04:28", duration: "4s" },
+  { id: "registration", label: "Image Registration", status: "done" as const, icon: Layers, time: "12:04:32", duration: "6s" },
+  { id: "cloudmask", label: "Cloud Mask Generation", status: "running" as const, icon: Cloud, time: "12:04:38", duration: "~12s" },
+  { id: "patch", label: "Patch Generation", status: "queued" as const, icon: Scissors, time: "—", duration: "~18s" },
+  { id: "normalization", label: "Normalization", status: "queued" as const, icon: BarChart3, time: "—", duration: "~5s" },
+  { id: "ready", label: "Ready for AI Reconstruction", status: "queued" as const, icon: Zap, time: "—", duration: "—" },
+];
+
+const processingLogs = [
+  { time: "12:04:38", message: "Generating cloud mask using S2Cloudless...", level: "info" as const },
+  { time: "12:04:36", message: "Coregistration RMSE: 0.12px — within threshold", level: "info" as const },
+  { time: "12:04:32", message: "Aligning bands with mutual information metric", level: "info" as const },
+  { time: "12:04:28", message: "Applying RPC orthorectification model", level: "info" as const },
+  { time: "12:04:25", message: "Atmospheric correction: 6S model applied", level: "info" as const },
+  { time: "12:04:24", message: "TOA to BOA reflectance conversion", level: "info" as const },
+  { time: "12:04:22", message: "Loading 13 spectral bands (10980×10980px)", level: "info" as const },
+  { time: "12:04:22", message: "Pipeline initialized on GPU: A100-1", level: "info" as const },
+];
+
+const summaryCards = [
+  { label: "Cloud Coverage", value: "23.5%", icon: Cloud, color: "oklch(0.50 0.16 195)" },
+  { label: "Total Patches", value: "1,024", icon: Scissors, color: "oklch(0.52 0.17 150)" },
+  { label: "Processing Time", value: "2m 14s", icon: Clock, color: "oklch(0.58 0.18 280)" },
+  { label: "Output Size", value: "3.8 GB", icon: HardDrive, color: "oklch(0.56 0.22 25)" },
 ];
 
 const stageColor: Record<string, string> = {
-  running: "oklch(0.50 0.16 195)",
   done: "oklch(0.52 0.17 150)",
+  running: "oklch(0.50 0.16 195)",
   failed: "oklch(0.56 0.22 25)",
   queued: "oklch(0.52 0.015 240)",
 };
 
-const gpuLoad = [
-  { name: "A100-1", load: 87, temp: 72, mem: "32/80 GB", jobs: 3 },
-  { name: "A100-2", load: 94, temp: 78, mem: "61/80 GB", jobs: 2 },
-];
-
-export default function ProcessingPage() {
+export default function PreprocessingPage() {
   return (
-    <Shell title="Processing" subtitle="Active jobs · GPU workers · pipeline queue">
+    <Shell title="Preprocessing" subtitle="Step-by-step pipeline · Image preparation · AI-ready output">
       <div className="flex flex-col gap-5">
 
-        {/* GPU status */}
-        <div className="grid grid-cols-2 gap-4">
-          {gpuLoad.map(g => (
-            <div key={g.name} className="rounded-xl border border-border bg-card p-4 shadow-sm">
-              <div className="mb-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Cpu className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-semibold text-foreground">{g.name}</span>
+        {/* Dataset Information */}
+        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <Database className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-semibold text-foreground">Dataset Information</h3>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] text-muted-foreground">Scene</span>
+              <span className="text-xs font-semibold text-foreground">{datasetInfo.name}</span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] text-muted-foreground">Source</span>
+              <span className="text-xs font-semibold text-foreground">{datasetInfo.source}</span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                <Calendar className="h-3 w-3" /> Date
+              </span>
+              <span className="text-xs font-semibold text-foreground">{datasetInfo.date}</span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                <MapPin className="h-3 w-3" /> Resolution
+              </span>
+              <span className="text-xs font-semibold text-foreground">{datasetInfo.resolution}</span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] text-muted-foreground">Size</span>
+              <span className="text-xs font-semibold text-foreground">{datasetInfo.size}</span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] text-muted-foreground">Bands</span>
+              <span className="text-xs font-semibold text-foreground">{datasetInfo.bands}</span>
+            </div>
+            <div className="flex flex-col gap-1 col-span-2 md:col-span-2">
+              <span className="text-[11px] text-muted-foreground">Cloud Coverage</span>
+              <div className="flex items-center gap-2">
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                  <div className="h-full rounded-full" style={{ width: "23.5%", background: "oklch(0.52 0.015 240)" }} />
                 </div>
-                <span className={`rounded-md px-2 py-0.5 text-[10px] font-semibold border ${g.load > 90 ? "bg-warning/12 text-warning border-warning/25" : "bg-success/12 text-success border-success/25"}`}>
-                  {g.load}% load
-                </span>
-              </div>
-              <div className="flex flex-col gap-2">
-                <div>
-                  <div className="mb-1 flex justify-between text-[11px]">
-                    <span className="text-muted-foreground">GPU utilization</span>
-                    <span className="font-semibold text-foreground">{g.load}%</span>
-                  </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                    <div className="h-full rounded-full transition-all" style={{ width: `${g.load}%`, background: g.load > 90 ? "var(--color-warning)" : "var(--color-primary)" }} />
-                  </div>
-                </div>
-                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                  <span>Temp: <span className="font-medium text-foreground">{g.temp}°C</span></span>
-                  <span>VRAM: <span className="font-medium text-foreground">{g.mem}</span></span>
-                  <span>Jobs: <span className="font-medium text-foreground">{g.jobs}</span></span>
-                </div>
+                <span className="text-xs font-semibold text-foreground">23.5%</span>
               </div>
             </div>
-          ))}
+          </div>
         </div>
 
-        {/* Jobs table */}
+        {/* Image Previews */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+            <h4 className="text-xs font-semibold text-foreground mb-3">Original vs Corrected</h4>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="aspect-square rounded-lg overflow-hidden border border-border relative bg-muted">
+                <img 
+                  src="/planets/earth_clouds.png" 
+                  alt="Original satellite view" 
+                  className="w-full h-full object-cover"
+                />
+                <span className="absolute bottom-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-medium text-white backdrop-blur-xs">
+                  Original
+                </span>
+              </div>
+              <div className="aspect-square rounded-lg overflow-hidden border border-border relative bg-muted">
+                <img 
+                  src="/planets/earth_atmos.jpg" 
+                  alt="Corrected satellite view" 
+                  className="w-full h-full object-cover"
+                />
+                <span className="absolute bottom-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-medium text-white backdrop-blur-xs">
+                  Corrected
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+            <h4 className="text-xs font-semibold text-foreground mb-3">Cloud Mask & Patches</h4>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="aspect-square rounded-lg overflow-hidden border border-border relative bg-muted animate-pulse">
+                <img 
+                  src="/planets/earth_clouds.png" 
+                  alt="Cloud Mask" 
+                  className="w-full h-full object-cover opacity-80" 
+                />
+                <span className="absolute bottom-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-medium text-white backdrop-blur-xs">
+                  Cloud Mask
+                </span>
+              </div>
+              <div className="aspect-square rounded-lg overflow-hidden border border-border relative bg-muted">
+                <img 
+                  src="/planets/earth_normal.jpg" 
+                  alt="Generated Patches" 
+                  className="w-full h-full object-cover"
+                />
+                <span className="absolute bottom-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-medium text-white backdrop-blur-xs">
+                  Patches
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Pipeline Timeline */}
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-sm font-semibold text-foreground">Active Job Queue</h3>
-              <p className="text-xs text-muted-foreground">{jobs.filter(j => j.status === "running").length} running · {jobs.filter(j => j.status === "queued").length} queued · {jobs.filter(j => j.status === "done").length} completed</p>
+              <h3 className="text-sm font-semibold text-foreground">Preprocessing Pipeline</h3>
+              <p className="text-xs text-muted-foreground">
+                {pipelineSteps.filter(s => s.status === "done").length} completed · 
+                {pipelineSteps.filter(s => s.status === "running").length} running · 
+                {pipelineSteps.filter(s => s.status === "queued").length} queued
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <button className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[11px] text-muted-foreground hover:bg-muted transition-colors">
-                <Pause className="h-3 w-3" /> Pause All
+                <Pause className="h-3 w-3" /> Pause
               </button>
               <button className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[11px] text-muted-foreground hover:bg-muted transition-colors">
-                <RotateCcw className="h-3 w-3" /> Retry Failed
+                <RotateCcw className="h-3 w-3" /> Restart
               </button>
             </div>
           </div>
 
-          <div className="flex flex-col gap-2">
-            {jobs.map(job => {
-              const color = stageColor[job.status];
+          {/* Vertical Timeline */}
+          <div className="relative">
+            {pipelineSteps.map((step, idx) => {
+              const color = stageColor[step.status];
+              const StepIcon = step.icon;
+              const isLast = idx === pipelineSteps.length - 1;
+
               return (
-                <div key={job.id} className="flex items-center gap-4 rounded-lg border border-border/50 bg-card px-4 py-3 hover:bg-muted/30 transition-colors">
-                  {/* Status icon */}
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg" style={{ background: `color-mix(in oklch, ${color} 12%, white)` }}>
-                    {job.status === "running" && <Play className="h-3.5 w-3.5" style={{ color }} />}
-                    {job.status === "done" && <CheckCircle2 className="h-3.5 w-3.5" style={{ color }} />}
-                    {job.status === "failed" && <AlertTriangle className="h-3.5 w-3.5" style={{ color }} />}
-                    {job.status === "queued" && <Clock className="h-3.5 w-3.5" style={{ color }} />}
+                <div key={step.id} className="flex gap-4 relative">
+                  {/* Timeline connector + icon */}
+                  <div className="flex flex-col items-center">
+                    <div
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 z-10 transition-all"
+                      style={{
+                        background: step.status === "running" 
+                          ? `color-mix(in oklch, ${color} 15%, white)` 
+                          : step.status === "done"
+                          ? `color-mix(in oklch, ${color} 12%, white)`
+                          : "var(--color-muted)",
+                        borderColor: step.status === "done" ? color : step.status === "running" ? color : "var(--color-border)",
+                      }}
+                    >
+                      {step.status === "done" ? (
+                        <CheckCircle2 className="h-4 w-4" style={{ color }} />
+                      ) : step.status === "running" ? (
+                        <div className="h-4 w-4 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: `${color} transparent ${color} ${color}` }} />
+                      ) : (
+                        <StepIcon className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </div>
+                    {!isLast && (
+                      <div
+                        className="w-0.5 flex-1 min-h-[24px]"
+                        style={{
+                          background: step.status === "done" 
+                            ? `linear-gradient(to bottom, ${color}, var(--color-muted))` 
+                            : "var(--color-muted)",
+                        }}
+                      />
+                    )}
                   </div>
 
-                  {/* Scene + stage */}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-mono text-[11px] font-semibold text-primary">{job.id}</span>
-                      <span className="truncate text-xs font-medium text-foreground">{job.scene}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-                        <div
-                          className="h-full rounded-full transition-all duration-500"
-                          style={{ width: `${job.progress}%`, background: color }}
-                        />
+                  {/* Step content */}
+                  <div className={`flex-1 pb-5 ${isLast ? "pb-0" : ""}`}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span
+                        className="text-xs font-semibold"
+                        style={{ color: step.status === "done" || step.status === "running" ? "var(--color-foreground)" : "var(--color-muted-foreground)" }}
+                      >
+                        {step.label}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] tabular-nums text-muted-foreground">{step.duration}</span>
+                        <span className="text-[10px] tabular-nums text-muted-foreground">{step.time}</span>
                       </div>
-                      <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">{job.progress}%</span>
                     </div>
-                  </div>
-
-                  {/* Stage */}
-                  <div className="hidden md:flex w-36 shrink-0 flex-col">
-                    <span className="text-xs font-medium text-foreground truncate">{job.stage}</span>
-                    <span className="text-[10px] text-muted-foreground">ETA: {job.eta}</span>
-                  </div>
-
-                  {/* GPU */}
-                  <div className="hidden lg:block w-20 shrink-0 text-[11px] text-muted-foreground text-right">
-                    <div>{job.gpu}</div>
-                    <div>{job.startedAt}</div>
+                    {step.status === "running" && (
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted mt-2">
+                        <div className="h-full w-2/3 rounded-full animate-pulse" style={{ background: color }} />
+                      </div>
+                    )}
                   </div>
                 </div>
               );
             })}
           </div>
         </div>
+
+        {/* Processing Logs */}
+        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+          <h4 className="text-xs font-semibold text-foreground mb-3">Processing Logs</h4>
+          <div className="flex flex-col gap-1 max-h-48 overflow-y-auto font-mono text-[11px]">
+            {processingLogs.map((log, idx) => (
+              <div key={idx} className="flex gap-3 py-0.5">
+                <span className="text-muted-foreground shrink-0">{log.time}</span>
+                <span className="text-foreground/80">{log.message}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {summaryCards.map(card => {
+            const CardIcon = card.icon;
+            return (
+              <div key={card.label} className="rounded-xl border border-border bg-card p-3 shadow-sm">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: `color-mix(in oklch, ${card.color} 12%, white)` }}>
+                    <CardIcon className="h-3.5 w-3.5" style={{ color: card.color }} />
+                  </div>
+                  <span className="text-[11px] text-muted-foreground">{card.label}</span>
+                </div>
+                <span className="text-lg font-bold text-foreground">{card.value}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center gap-3">
+          <button className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm">
+            <Wand2 className="h-3.5 w-3.5" /> Start Reconstruction
+          </button>
+          <button className="flex items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-xs font-medium text-foreground hover:bg-muted transition-colors">
+            <Cloud className="h-3.5 w-3.5" /> Generate Cloud Mask
+          </button>
+          <button className="flex items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-xs font-medium text-foreground hover:bg-muted transition-colors">
+            <Download className="h-3.5 w-3.5" /> Download
+          </button>
+        </div>
+
       </div>
     </Shell>
   );

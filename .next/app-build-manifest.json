@@ -11,10 +11,35 @@
       "static/chunks/main-app.js",
       "static/chunks/app/page.js"
     ],
-    "/data-manager/page": [
+    "/monitoring/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/data-manager/page.js"
+      "static/chunks/app/monitoring/page.js"
+    ],
+    "/models/fusion/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/models/fusion/page.js"
+    ],
+    "/models/manager/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/models/manager/page.js"
+    ],
+    "/models/reconstruction/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/models/reconstruction/page.js"
+    ],
+    "/models/cloud-detection/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/models/cloud-detection/page.js"
+    ],
+    "/reports/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/reports/page.js"
     ]
   }
 }

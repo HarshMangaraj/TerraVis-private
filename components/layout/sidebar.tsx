@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Database, Cpu, FileBarChart2, GitCompare, FileText,
-  CloudOff, Wand2, Layers, Boxes, Activity, Settings, Satellite,
+  LayoutDashboard, Database, Cpu, Wand2, GitCompare, FileBarChart2, FileText,
+  CloudOff, Layers, Boxes, Activity, Settings, Satellite,
   ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { useState } from "react";
@@ -12,29 +12,30 @@ import { cn } from "@/lib/utils";
 
 const groups = [
   {
-    label: "Main",
+    label: "🛰 MAIN",
     items: [
       { title: "Dashboard", url: "/", icon: LayoutDashboard },
-      { title: "Data Manager", url: "/data-manager", icon: Database },
-      { title: "Processing", url: "/processing", icon: Cpu },
+      { title: "Dataset Explorer", url: "/data-manager", icon: Database },
+      { title: "Preprocessing", url: "/processing", icon: Cpu },
+      { title: "Reconstruction", url: "/reconstruction", icon: Wand2 },
+      { title: "Evaluation", url: "/comparison", icon: GitCompare },
       { title: "Results", url: "/results", icon: FileBarChart2 },
-      { title: "Comparison", url: "/comparison", icon: GitCompare },
       { title: "Reports", url: "/reports", icon: FileText },
     ],
   },
   {
-    label: "AI Models",
+    label: "🤖 AI MODELS",
     items: [
       { title: "Cloud Detection", url: "/models/cloud-detection", icon: CloudOff },
-      { title: "Reconstruction", url: "/models/reconstruction", icon: Wand2 },
-      { title: "Fusion", url: "/models/fusion", icon: Layers },
-      { title: "Model Manager", url: "/models/manager", icon: Boxes },
+      { title: "Generative Prediction", url: "/models/reconstruction", icon: Wand2 },
+      { title: "Multi-Sensor Fusion", url: "/models/fusion", icon: Layers },
+      { title: " Moisture Stress Detection", url: "/models/manager", icon: Boxes },
     ],
   },
   {
-    label: "System",
+    label: "⚙ SYSTEM",
     items: [
-      { title: "Monitoring", url: "/monitoring", icon: Activity },
+      { title: "Real-time Monitoring", url: "/monitoring", icon: Activity },
       { title: "Settings", url: "/settings", icon: Settings },
     ],
   },
