@@ -1,4 +1,4 @@
-// File: C:\Users\ASUS\Downloads\liss-dashboard-codebase.tar\liss-dashboard-codebase\app\layout.tsx
+// File: E:\GITHUB\Isro-project\TerraVis-private\app\layout.tsx
 import * as entry from '../../../app/layout.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
