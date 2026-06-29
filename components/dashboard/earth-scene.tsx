@@ -1,221 +1,258 @@
 "use client";
 
-import { useRef, Suspense } from "react";
+import { useRef, useMemo, Suspense } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Stars, OrbitControls, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 
-const EARTH_TEX = "/planets/earth_atmos.jpg";
-const EARTH_NORMAL = "/planets/earth_normal.jpg";
-const EARTH_SPEC = "/planets/earth_spec.jpg";
-const EARTH_CLOUDS = "/planets/earth_clouds.png";
-const MOON_TEX = "/planets/moon.jpg";
+const TEX = {
+  day:    "https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg",
+  night:  "https://unpkg.com/three-globe/example/img/earth-dark.jpg",
+  spec:   "https://unpkg.com/three-globe/example/img/earth-water.png",
+  clouds: "/planets/earth_clouds.png",
+};
 
-function Earth() {
-  const earthRef = useRef<THREE.Mesh>(null);
-  const cloudRef = useRef<THREE.Mesh>(null);
+const EARTH_VERT = /* glsl */`
+  varying vec2  vUv;
+  varying vec3  vNormal;
+  varying vec3  vWorldPos;
 
-  const [earthMap, normalMap, specMap, cloudMap] = useTexture([
-    EARTH_TEX, EARTH_NORMAL, EARTH_SPEC, EARTH_CLOUDS,
+  void main() {
+    vUv       = uv;
+    vNormal   = normalize(mat3(modelMatrix) * normal);
+    vWorldPos = (modelMatrix * vec4(position, 1.0)).xyz;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const EARTH_FRAG = /* glsl */`
+  uniform sampler2D uDay;
+  uniform sampler2D uNight;
+  uniform sampler2D uSpec;
+  uniform vec3      uSunDir;
+
+  varying vec2 vUv;
+  varying vec3 vNormal;
+  varying vec3 vWorldPos;
+
+  void main() {
+    vec3  N   = normalize(vNormal);
+    float NdL = dot(N, normalize(uSunDir));
+
+    vec4 dayCol   = texture2D(uDay,   vUv);
+    vec4 nightCol = texture2D(uNight, vUv);
+    float specVal = texture2D(uSpec,  vUv).r;
+
+    float t = smoothstep(-0.12, 0.22, NdL);
+
+    vec3 viewDir  = normalize(cameraPosition - vWorldPos);
+    vec3 halfVec  = normalize(normalize(uSunDir) + viewDir);
+    float spec    = pow(max(dot(N, halfVec), 0.0), 48.0) * specVal * 0.9;
+    vec3  specCol = vec3(spec) * vec3(0.9, 0.95, 1.0);
+
+    vec4 col = mix(nightCol, dayCol, t);
+    col.rgb  += specCol * t;
+
+    float fresnel = 1.0 - max(dot(N, viewDir), 0.0);
+    col.rgb      *= 1.0 - fresnel * fresnel * 0.18;
+
+    gl_FragColor = col;
+  }
+`;
+
+
+
+function EarthMesh() {
+  const earthRef  = useRef<THREE.Mesh>(null!);
+  const cloudsRef = useRef<THREE.Mesh>(null!);
+
+  const [dayTex, nightTex, specTex, cloudTex] = useTexture([
+    TEX.day, TEX.night, TEX.spec, TEX.clouds,
   ]);
 
-  useFrame((_, delta) => {
-    if (earthRef.current) earthRef.current.rotation.y += delta * 0.08;
-    if (cloudRef.current) cloudRef.current.rotation.y += delta * 0.11;
+  const sunDir = useMemo(() => new THREE.Vector3(1.4, 0.5, 1.2).normalize(), []);
+
+  const earthMat = useMemo(() => new THREE.ShaderMaterial({
+    uniforms: {
+      uDay:    { value: dayTex },
+      uNight:  { value: nightTex },
+      uSpec:   { value: specTex },
+      uSunDir: { value: sunDir },
+    },
+    vertexShader:   EARTH_VERT,
+    fragmentShader: EARTH_FRAG,
+  }), [dayTex, nightTex, specTex, sunDir]);
+
+
+
+  useFrame((_, dt) => {
+    earthRef.current.rotation.y  += dt * 0.04;
+    cloudsRef.current.rotation.y += dt * 0.055;
   });
 
   return (
     <group>
-      {/* Atmosphere halo */}
-      <mesh>
-        <sphereGeometry args={[2.18, 64, 64]} />
-        <meshPhongMaterial
-          color={new THREE.Color(0x3366ff)}
-          transparent
-          opacity={0.07}
-          side={THREE.FrontSide}
-          depthWrite={false}
-        />
+      <mesh ref={earthRef} castShadow>
+        <sphereGeometry args={[2, 96, 96]} />
+        <primitive object={earthMat} attach="material" />
       </mesh>
-      {/* Earth surface */}
-      <mesh ref={earthRef}>
-        <sphereGeometry args={[2, 64, 64]} />
+
+      <mesh ref={cloudsRef}>
+        <sphereGeometry args={[2.025, 64, 64]} />
         <meshPhongMaterial
-          map={earthMap}
-          normalMap={normalMap}
-          specularMap={specMap}
-          specular={new THREE.Color(0x221133)}
-          shininess={18}
-        />
-      </mesh>
-      {/* Cloud layer */}
-      <mesh ref={cloudRef}>
-        <sphereGeometry args={[2.04, 64, 64]} />
-        <meshPhongMaterial
-          map={cloudMap}
+          alphaMap={cloudTex}
           transparent
           opacity={0.32}
+          color="#ffffff"
           depthWrite={false}
+          shininess={0}
         />
       </mesh>
+
+
     </group>
   );
 }
 
-function OrbitalRing({
-  radius,
-  tiltX = 0,
-  tiltZ = 0,
-  color = "#4488ff",
+function SatelliteModel({
+  orbitR, speed, tiltX, tiltZ, phase, color,
 }: {
-  radius: number;
-  tiltX?: number;
-  tiltZ?: number;
-  color?: string;
+  orbitR: number; speed: number; tiltX: number; tiltZ: number; phase: number; color: string;
 }) {
-  return (
-    <mesh rotation={[Math.PI / 2 + tiltX, 0, tiltZ]}>
-      <torusGeometry args={[radius, 0.007, 2, 128]} />
-      <meshBasicMaterial color={color} transparent opacity={0.22} />
-    </mesh>
-  );
-}
+  const groupRef = useRef<THREE.Group>(null!);
+  const angle    = useRef(phase);
 
-function Moon() {
-  const groupRef = useRef<THREE.Group>(null);
-  const meshRef = useRef<THREE.Mesh>(null);
-  const moonMap = useTexture(MOON_TEX);
-
-  useFrame(({ clock }) => {
-    const t = clock.getElapsedTime() * 0.22;
-    if (groupRef.current) {
-      groupRef.current.position.set(
-        Math.cos(t) * 5.6,
-        Math.sin(t * 0.15) * 0.7,
-        Math.sin(t) * 5.6
-      );
+  const orbitPts = useMemo(() => {
+    const pts: THREE.Vector3[] = [];
+    for (let i = 0; i <= 200; i++) {
+      const a = (i / 200) * Math.PI * 2;
+      pts.push(new THREE.Vector3(
+        Math.cos(a) * orbitR,
+        Math.sin(a) * orbitR * Math.sin(tiltX),
+        Math.sin(a) * orbitR * Math.cos(tiltX),
+      ));
     }
-    if (meshRef.current) meshRef.current.rotation.y += 0.003;
+    return pts;
+  }, [orbitR, tiltX]);
+
+  const orbitGeo = useMemo(() => new THREE.BufferGeometry().setFromPoints(orbitPts), [orbitPts]);
+  const orbitMat = useMemo(() => new THREE.LineBasicMaterial({ color: new THREE.Color(color), transparent: true, opacity: 0.18 }), [color]);
+
+  useFrame((_, dt) => {
+    angle.current += dt * speed;
+    const a = angle.current;
+    const x = Math.cos(a) * orbitR;
+    const y = Math.sin(a) * orbitR * Math.sin(tiltX);
+    const z = Math.sin(a) * orbitR * Math.cos(tiltX);
+    groupRef.current.position.set(x, y, z);
+    const tangentX = -Math.sin(a);
+    const tangentZ =  Math.cos(a) * Math.cos(tiltX);
+    groupRef.current.lookAt(
+      groupRef.current.position.x + tangentX * 0.1,
+      groupRef.current.position.y,
+      groupRef.current.position.z + tangentZ * 0.1,
+    );
   });
 
   return (
-    <group ref={groupRef}>
-      <mesh ref={meshRef}>
-        <sphereGeometry args={[0.54, 32, 32]} />
-        <meshPhongMaterial map={moonMap} />
-      </mesh>
+    <group>
+      {/* @ts-ignore */}
+      <line geometry={orbitGeo}>
+        <primitive object={orbitMat} attach="material" />
+      </line>
+      <group ref={groupRef} scale={0.045}>
+        <mesh>
+          <boxGeometry args={[1.6, 1.0, 1.0]} />
+          <meshStandardMaterial color="#c8cdd6" metalness={0.85} roughness={0.20} />
+        </mesh>
+        <mesh position={[0, 0, 0.51]}>
+          <boxGeometry args={[1.4, 0.8, 0.02]} />
+          <meshStandardMaterial color="#aab0bb" metalness={0.7} roughness={0.3} />
+        </mesh>
+        {([-2.4, 2.4] as const).map((xp, si) => (
+          <group key={si} position={[xp, 0, 0]}>
+            <mesh>
+              <boxGeometry args={[2.6, 0.8, 0.06]} />
+              <meshStandardMaterial color="#1a3a6e" metalness={0.4} roughness={0.4}
+                emissive={new THREE.Color(0x0a2244)} emissiveIntensity={0.3} />
+            </mesh>
+            {[-0.9,-0.3,0.3,0.9].map((x, i) => (
+              <mesh key={i} position={[x, 0, 0.04]}>
+                <boxGeometry args={[0.5, 0.7, 0.01]} />
+                <meshStandardMaterial color="#1e4488" metalness={0.5} roughness={0.3}
+                  emissive={new THREE.Color(0x1a3a78)} emissiveIntensity={0.5} />
+              </mesh>
+            ))}
+          </group>
+        ))}
+        <mesh position={[0, 0.7, 0]} rotation={[Math.PI/4, 0, 0]}>
+          <cylinderGeometry args={[0.3, 0.0, 0.4, 12, 1, true]} />
+          <meshStandardMaterial color="#d0d5de" metalness={0.9} roughness={0.1} side={THREE.DoubleSide} />
+        </mesh>
+        <pointLight color={color} intensity={0.8} distance={2} decay={2} />
+        <mesh>
+          <sphereGeometry args={[0.18, 8, 8]} />
+          <meshStandardMaterial color={color} emissive={color} emissiveIntensity={4} />
+        </mesh>
+      </group>
     </group>
   );
 }
 
-function Satellite({ idx }: { idx: number }) {
-  const groupRef = useRef<THREE.Group>(null);
-  const speed = 0.85 + idx * 0.38;
-  const radius = 3.0 + idx * 0.6;
-  const tilt = (idx * Math.PI) / 3;
-
-  useFrame(({ clock }) => {
-    const t = clock.getElapsedTime() * speed;
-    if (groupRef.current) {
-      const cosT = Math.cos(tilt);
-      const sinT = Math.sin(tilt);
-      const rx = Math.cos(t) * radius;
-      const rz = Math.sin(t) * radius;
-      groupRef.current.position.set(rx, rz * sinT, rz * cosT);
-
-      // Orient forward along orbit tangent
-      const vx = -Math.sin(t) * speed * radius;
-      const vz = Math.cos(t) * speed * radius;
-      groupRef.current.lookAt(
-        groupRef.current.position.x + vx,
-        groupRef.current.position.y,
-        groupRef.current.position.z + vz * cosT
-      );
-    }
+function AoiPin() {
+  const ringRef = useRef<THREE.Mesh>(null!);
+  const latR = (26.1 * Math.PI) / 180;
+  const lonR = (91.7 * Math.PI) / 180;
+  const r    = 2.04;
+  const pos: [number,number,number] = [
+    r * Math.cos(latR) * Math.sin(lonR),
+    r * Math.sin(latR),
+    r * Math.cos(latR) * Math.cos(lonR),
+  ];
+  useFrame(state => {
+    const s = 1 + Math.sin(state.clock.elapsedTime * 2.8) * 0.55;
+    ringRef.current.scale.setScalar(s);
+    (ringRef.current.material as THREE.MeshBasicMaterial).opacity =
+      Math.max(0.0, 0.75 - (s - 1) * 1.4);
   });
-
-  const bodyColors = ["#b8cfe0", "#c4d4e4", "#a8bcd8"] as const;
-  const panelColors = ["#1a3a7a", "#0a2a5a", "#153070"] as const;
-
   return (
-    <group ref={groupRef}>
-      {/* Body */}
+    <group position={pos}>
       <mesh>
-        <boxGeometry args={[0.19, 0.13, 0.13]} />
-        <meshStandardMaterial color={bodyColors[idx]} metalness={0.85} roughness={0.18} />
+        <sphereGeometry args={[0.032, 8, 8]} />
+        <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={5} />
       </mesh>
-      {/* Solar panels */}
-      {[-0.3, 0.3].map((z) => (
-        <mesh key={z} position={[0, 0, z]}>
-          <boxGeometry args={[0.44, 0.007, 0.19]} />
-          <meshStandardMaterial
-            color={panelColors[idx]}
-            metalness={0.45}
-            roughness={0.3}
-            emissive={panelColors[idx]}
-            emissiveIntensity={0.18}
-          />
-        </mesh>
-      ))}
-      {/* Panel struts */}
-      {[-0.17, 0.17].map((z) => (
-        <mesh key={z} position={[0, 0, z]}>
-          <boxGeometry args={[0.01, 0.01, 0.18]} />
-          <meshStandardMaterial color="#aaaaaa" metalness={0.9} roughness={0.1} />
-        </mesh>
-      ))}
-      {/* Antenna mast */}
-      <mesh position={[0, 0.115, 0]}>
-        <cylinderGeometry args={[0.004, 0.004, 0.19, 6]} />
-        <meshStandardMaterial color="#dddddd" metalness={0.9} roughness={0.1} />
-      </mesh>
-      {/* Dish */}
-      <mesh position={[0, 0.215, 0]} rotation={[Math.PI, 0, 0]}>
-        <coneGeometry args={[0.055, 0.065, 8]} />
-        <meshStandardMaterial color="#cccccc" metalness={0.88} roughness={0.12} />
-      </mesh>
-      {/* Active signal dot */}
-      <mesh position={[0, 0.248, 0]}>
-        <sphereGeometry args={[0.02, 8, 8]} />
-        <meshStandardMaterial
-          color="#00ccff"
-          emissive="#00ccff"
-          emissiveIntensity={3}
-        />
+      <mesh ref={ringRef} rotation={[Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.048, 0.072, 20]} />
+        <meshBasicMaterial color="#ef4444" transparent opacity={0.7}
+          side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
     </group>
   );
 }
 
-function SceneContents() {
+const SAT_CONFIGS = [
+  { orbitR: 2.82, speed: 0.28, tiltX: 0.48,  tiltZ: 0,   phase: 0,    color: "#60a5fa" },
+  { orbitR: 3.05, speed: 0.21, tiltX: 1.05,  tiltZ: 0.3, phase: 2.09, color: "#4ade80" },
+  { orbitR: 2.65, speed: 0.36, tiltX: -0.72, tiltZ: 0.1, phase: 4.19, color: "#facc15" },
+];
+
+function Scene() {
   return (
     <>
-      <ambientLight intensity={0.14} />
-      <directionalLight position={[12, 6, 8]} intensity={1.9} color="#ffe8c0" />
-      <pointLight position={[-8, -4, -8]} intensity={0.1} color="#2244aa" />
-
-      <Stars radius={350} depth={80} count={6000} factor={4} saturation={0.1} fade speed={0.4} />
-
+      <ambientLight intensity={0.04} />
+      <directionalLight position={[8, 3, 6]} intensity={2.2} color="#fff8f0" castShadow />
+      <directionalLight position={[-6, -2, -5]} intensity={0.03} color="#203050" />
+      <Stars radius={90} depth={50} count={5000} factor={3.5} saturation={0.0} fade speed={0.3} />
       <Suspense fallback={null}>
-        <Earth />
-        <Moon />
+        <EarthMesh />
+        <AoiPin />
       </Suspense>
-
-      <OrbitalRing radius={3.0} tiltX={0} tiltZ={0} color="#88aaff" />
-      <OrbitalRing radius={3.6} tiltX={Math.PI / 3} tiltZ={0} color="#88ccff" />
-      <OrbitalRing radius={4.2} tiltX={(2 * Math.PI) / 3} tiltZ={0.2} color="#aabbff" />
-
-      <Satellite idx={0} />
-      <Satellite idx={1} />
-      <Satellite idx={2} />
-
+      {SAT_CONFIGS.map((cfg, i) => (
+        <SatelliteModel key={i} {...cfg} />
+      ))}
       <OrbitControls
-        enableZoom={false}
-        enablePan={false}
-        autoRotate
-        autoRotateSpeed={0.28}
-        minPolarAngle={Math.PI / 5}
-        maxPolarAngle={(3 * Math.PI) / 4}
+        enableZoom enablePan={false} enableDamping dampingFactor={0.07}
+        minDistance={3.2} maxDistance={10} autoRotate={false}
       />
     </>
   );
@@ -224,11 +261,20 @@ function SceneContents() {
 export function EarthScene() {
   return (
     <Canvas
-      camera={{ position: [0, 3, 9], fov: 42 }}
-      gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
-      style={{ background: "transparent" }}
+      camera={{ position: [0, 1, 6.5], fov: 40 }}
+      gl={{ antialias: true, alpha: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.1 }}
+      shadows
+      style={{ width: "100%", height: "100%", background: "#050d1a" }}
     >
-      <SceneContents />
+      <Scene />
     </Canvas>
+  );
+}
+
+export default function Preview() {
+  return (
+    <div style={{ width: "100vw", height: "100vh" }}>
+      <EarthScene />
+    </div>
   );
 }

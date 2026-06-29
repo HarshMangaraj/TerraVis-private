@@ -13,7 +13,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <head>
+        {/* Preload Three.js planet textures so they are already in browser cache
+            when the WebGL canvas initialises — eliminates the texture-load stall */}
+        <link rel="preload" href="/planets/earth_atmos.jpg" as="image" />
+        <link rel="preload" href="/planets/earth_normal.jpg" as="image" />
+        <link rel="preload" href="/planets/earth_clouds.png" as="image" />
+        <link rel="preload" href="/planets/moon.jpg" as="image" />
+      </head>
+      <body suppressHydrationWarning>{children}</body>
     </html>
   );
 }

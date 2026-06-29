@@ -1,7 +1,7 @@
 import { Shell } from "@/components/layout/shell";
 import { 
   Cpu, Play, Pause, RotateCcw, Clock, CheckCircle2, AlertTriangle,
-  Database, Cloud, Image, Scissors, BarChart3, Download, Wand2,
+  Database, Cloud, Scissors, BarChart3, Download, Wand2,
   MapPin, Calendar, HardDrive, Zap, Layers, Maximize2
 } from "lucide-react";
 
@@ -108,34 +108,50 @@ export default function PreprocessingPage() {
           <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
             <h4 className="text-xs font-semibold text-foreground mb-3">Original vs Corrected</h4>
             <div className="grid grid-cols-2 gap-2">
-              <div className="aspect-square rounded-lg bg-muted flex items-center justify-center border border-border">
-                <div className="text-center">
-                  <Image className="h-8 w-8 mx-auto text-muted-foreground/60 mb-1" />
-                  <span className="text-[10px] text-muted-foreground">Original</span>
-                </div>
+              <div className="aspect-square rounded-lg overflow-hidden border border-border relative bg-muted">
+                <img 
+                  src="/planets/earth_clouds.png" 
+                  alt="Original satellite view" 
+                  className="w-full h-full object-cover"
+                />
+                <span className="absolute bottom-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-medium text-white backdrop-blur-xs">
+                  Original
+                </span>
               </div>
-              <div className="aspect-square rounded-lg bg-muted flex items-center justify-center border border-border">
-                <div className="text-center">
-                  <Image className="h-8 w-8 mx-auto text-primary/60 mb-1" />
-                  <span className="text-[10px] text-muted-foreground">Corrected</span>
-                </div>
+              <div className="aspect-square rounded-lg overflow-hidden border border-border relative bg-muted">
+                <img 
+                  src="/planets/earth_atmos.jpg" 
+                  alt="Corrected satellite view" 
+                  className="w-full h-full object-cover"
+                />
+                <span className="absolute bottom-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-medium text-white backdrop-blur-xs">
+                  Corrected
+                </span>
               </div>
             </div>
           </div>
           <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
             <h4 className="text-xs font-semibold text-foreground mb-3">Cloud Mask & Patches</h4>
             <div className="grid grid-cols-2 gap-2">
-              <div className="aspect-square rounded-lg bg-muted flex items-center justify-center border border-border">
-                <div className="text-center">
-                  <Cloud className="h-8 w-8 mx-auto text-muted-foreground/60 mb-1" />
-                  <span className="text-[10px] text-muted-foreground">Cloud Mask</span>
-                </div>
+              <div className="aspect-square rounded-lg overflow-hidden border border-border relative bg-muted animate-pulse">
+                <img 
+                  src="/planets/earth_clouds.png" 
+                  alt="Cloud Mask" 
+                  className="w-full h-full object-cover opacity-80" 
+                />
+                <span className="absolute bottom-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-medium text-white backdrop-blur-xs">
+                  Cloud Mask
+                </span>
               </div>
-              <div className="aspect-square rounded-lg bg-muted flex items-center justify-center border border-border">
-                <div className="text-center">
-                  <Scissors className="h-8 w-8 mx-auto text-primary/60 mb-1" />
-                  <span className="text-[10px] text-muted-foreground">Patches</span>
-                </div>
+              <div className="aspect-square rounded-lg overflow-hidden border border-border relative bg-muted">
+                <img 
+                  src="/planets/earth_normal.jpg" 
+                  alt="Generated Patches" 
+                  className="w-full h-full object-cover"
+                />
+                <span className="absolute bottom-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-medium text-white backdrop-blur-xs">
+                  Patches
+                </span>
               </div>
             </div>
           </div>
