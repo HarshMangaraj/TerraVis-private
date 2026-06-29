@@ -5,7 +5,10 @@ import { useState } from "react";
 import { notifications } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
-export function Header({ title, subtitle }: { title: string; subtitle?: string }) {
+import { useLayoutContext } from "./context";
+
+export function Header() {
+  const { title, subtitle } = useLayoutContext();
   const [showNotifs, setShowNotifs] = useState(false);
 
   const typeIcon: Record<string, string> = {

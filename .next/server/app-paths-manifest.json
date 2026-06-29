@@ -1,7 +1,14 @@
 {
-  "/monitoring/page": "app/monitoring/page.js",
-  "/models/reconstruction/page": "app/models/reconstruction/page.js",
-  "/models/manager/page": "app/models/manager/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/comparison/page": "app/comparison/page.js",
+  "/data-manager/page": "app/data-manager/page.js",
+  "/models/cloud-detection/page": "app/models/cloud-detection/page.js",
   "/models/fusion/page": "app/models/fusion/page.js",
-  "/models/cloud-detection/page": "app/models/cloud-detection/page.js"
+  "/models/manager/page": "app/models/manager/page.js",
+  "/models/reconstruction/page": "app/models/reconstruction/page.js",
+  "/monitoring/page": "app/monitoring/page.js",
+  "/page": "app/page.js",
+  "/processing/page": "app/processing/page.js",
+  "/reports/page": "app/reports/page.js",
+  "/results/page": "app/results/page.js"
 }

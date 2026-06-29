@@ -341,7 +341,7 @@ function PingRing({ pos, color }: { pos: [number, number, number]; color: string
   );
 }
 
-function Earth() {
+function Earth({ onGlobeClick }: { onGlobeClick?: (lat: number, lng: number) => void }) {
   const earthRef = useRef<THREE.Mesh>(null!);
   const cloudRef = useRef<THREE.Mesh>(null!);
   const satRef   = useRef<THREE.Group>(null!);
@@ -378,9 +378,25 @@ function Earth() {
     satRef.current.position.set(Math.cos(a) * 2.55, Math.sin(a) * 0.55, Math.sin(a) * 2.15);
   });
 
+  const handleClick = (e: any) => {
+    e.stopPropagation();
+    if (!onGlobeClick || !earthRef.current) return;
+    // Transform click point from world space to sphere-local space to get true lat/lng
+    const localPoint = earthRef.current.worldToLocal(e.point.clone());
+    const r = localPoint.length();
+    const lat = (Math.asin(localPoint.y / r) * 180) / Math.PI;
+    const lng = (Math.atan2(localPoint.x, localPoint.z) * 180) / Math.PI;
+    
+    // Pass coordinates but ensure they are within standard bounds
+    onGlobeClick(parseFloat(lat.toFixed(4)), parseFloat(lng.toFixed(4)));
+  };
+
   return (
     <group>
-      <mesh ref={earthRef}><sphereGeometry args={[1.8, 96, 96]} /><primitive object={mat} attach="material" /></mesh>
+      <mesh ref={earthRef} onClick={handleClick} style={{ cursor: "pointer" }}>
+        <sphereGeometry args={[1.8, 96, 96]} />
+        <primitive object={mat} attach="material" />
+      </mesh>
       <mesh ref={cloudRef}>
         <sphereGeometry args={[1.835, 64, 64]} />
         <meshPhongMaterial alphaMap={clouds} transparent opacity={0.28} color="#fff" depthWrite={false} shininess={0} />
@@ -417,6 +433,7 @@ function Moon() {
     const la = (-70 * Math.PI) / 180, r = 1.84;
     return [0, r * Math.sin(la), r * Math.cos(la)];
   }, []);
+
   return (
     <group>
       <mesh ref={ref}><sphereGeometry args={[1.8, 96, 96]} /><primitive object={mat} attach="material" /></mesh>
@@ -437,6 +454,7 @@ function Mars() {
     const la = (18.65 * Math.PI) / 180, lo = (226.2 * Math.PI) / 180, r = 1.84;
     return [r * Math.cos(la) * Math.sin(lo), r * Math.sin(la), r * Math.cos(la) * Math.cos(lo)];
   }, []);
+
   return (
     <group>
       <mesh ref={ref}><sphereGeometry args={[1.8, 96, 96]} /><primitive object={mat} attach="material" /></mesh>
@@ -486,6 +504,7 @@ function Sun() {
     mat.uniforms.uTime.value = s.clock.elapsedTime;
     corona.current.scale.setScalar(1.28 + Math.sin(s.clock.elapsedTime * 0.7) * 0.04);
   });
+
   return (
     <group>
       <mesh scale={1.65}><sphereGeometry args={[1.8,16,16]} /><meshBasicMaterial color="#ff9900" transparent opacity={0.03} depthWrite={false} blending={THREE.AdditiveBlending} /></mesh>
@@ -650,7 +669,7 @@ const TABS: { key: SpaceBodyKey; label: string; icon: string; accent: string }[]
   { key: "milky", label: "Galaxy",  icon: "🌌", accent: "#c4b5fd" },
 ];
 
-function SceneContent({ body }: { body: SpaceBodyKey }) {
+function SceneContent({ body, onGlobeClick }: { body: SpaceBodyKey; onGlobeClick?: (lat: number, lng: number) => void }) {
   const isSun = body === "sun";
   return (
     <>
@@ -658,7 +677,7 @@ function SceneContent({ body }: { body: SpaceBodyKey }) {
       {!isSun && <directionalLight position={[8,3,6]} intensity={2.4} color="#fff8f0" />}
       <Stars radius={85} depth={45} count={body==="milky"?800:4500} factor={3.2} saturation={0} fade speed={0.4} />
       <Suspense fallback={null}>
-        {body==="earth" && <Earth />}
+        {body==="earth" && <Earth onGlobeClick={onGlobeClick} />}
         {body==="moon"  && <Moon />}
         {body==="mars"  && <Mars />}
         {body==="sun"   && <Sun />}
@@ -669,8 +688,7 @@ function SceneContent({ body }: { body: SpaceBodyKey }) {
     </>
   );
 }
-
-export function MonitoringScene({ body: externalBody = "earth", onBodyChange }: { body?: SpaceBodyKey; onBodyChange?: (b: SpaceBodyKey) => void }) {
+export function MonitoringScene({ body: externalBody = "earth", onBodyChange, onGlobeClick, hideUI = false }: { body?: SpaceBodyKey; onBodyChange?: (b: SpaceBodyKey) => void; onGlobeClick?: (lat: number, lng: number) => void; hideUI?: boolean }) {
   const [body, setBody] = useState<SpaceBodyKey>(externalBody);
 
   // Sync when parent drives the prop (e.g. left sidebar buttons)
@@ -685,55 +703,59 @@ export function MonitoringScene({ body: externalBody = "earth", onBodyChange }: 
         key={body}
         camera={{ position: CAM[body], fov: 44 }}
         gl={{ antialias: true, alpha: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.15 }}
-        style={{ width: "100%", height: "100%", background: BG[body] }}
+        style={{ width: "100%", height: "100%", background: BG[body], cursor: body === "earth" ? "crosshair" : "grab" }}
       >
-        <SceneContent body={body} />
+        <SceneContent body={body} onGlobeClick={body === "earth" ? onGlobeClick : undefined} />
       </Canvas>
 
       {/* ── Tab switcher ─────────────────────────────────────────────────── */}
-      <div style={{
-        position: "absolute", bottom: 28, left: "50%", transform: "translateX(-50%)",
-        display: "flex", gap: 8,
-        background: "rgba(5,10,20,0.72)", backdropFilter: "blur(14px)",
-        border: "1px solid rgba(255,255,255,0.10)",
-        borderRadius: 40, padding: "6px 10px",
-        boxShadow: `0 0 24px 0 ${accent}33`,
-      }}>
-        {TABS.map(tab => {
-          const active = tab.key === body;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => handleSwitch(tab.key)}
-              style={{
-                display: "flex", alignItems: "center", gap: 6,
-                padding: "7px 16px", borderRadius: 30, border: "none", cursor: "pointer",
-                fontFamily: "system-ui, sans-serif", fontSize: 13, fontWeight: active ? 600 : 400,
-                letterSpacing: "0.02em",
-                background: active ? `${tab.accent}22` : "transparent",
-                color: active ? tab.accent : "rgba(255,255,255,0.45)",
-                boxShadow: active ? `0 0 0 1px ${tab.accent}55` : "none",
-                transition: "all 0.18s ease",
-              }}
-            >
-              <span style={{ fontSize: 15 }}>{tab.icon}</span>
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
-      </div>
+      {!hideUI && (
+        <div style={{
+          position: "absolute", bottom: 28, left: "50%", transform: "translateX(-50%)",
+          display: "flex", gap: 8,
+          background: "rgba(5,10,20,0.72)", backdropFilter: "blur(14px)",
+          border: "1px solid rgba(255,255,255,0.10)",
+          borderRadius: 40, padding: "6px 10px",
+          boxShadow: `0 0 24px 0 ${accent}33`,
+        }}>
+          {TABS.map(tab => {
+            const active = tab.key === body;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => handleSwitch(tab.key)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  padding: "7px 16px", borderRadius: 30, border: "none", cursor: "pointer",
+                  fontFamily: "system-ui, sans-serif", fontSize: 13, fontWeight: active ? 600 : 400,
+                  letterSpacing: "0.02em",
+                  background: active ? `${tab.accent}22` : "transparent",
+                  color: active ? tab.accent : "rgba(255,255,255,0.45)",
+                  boxShadow: active ? `0 0 0 1px ${tab.accent}55` : "none",
+                  transition: "all 0.18s ease",
+                }}
+              >
+                <span style={{ fontSize: 15 }}>{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* ── Body label ───────────────────────────────────────────────────── */}
-      <div style={{
-        position: "absolute", top: 22, left: 28,
-        fontFamily: "system-ui, sans-serif", color: "rgba(255,255,255,0.55)", fontSize: 11,
-        letterSpacing: "0.12em", textTransform: "uppercase",
-        background: "rgba(5,10,20,0.55)", backdropFilter: "blur(8px)",
-        padding: "4px 12px", borderRadius: 20,
-        border: "1px solid rgba(255,255,255,0.08)",
-      }}>
-        Live Monitor · {TABS.find(t=>t.key===body)?.label}
-      </div>
+      {!hideUI && (
+        <div style={{
+          position: "absolute", top: 22, left: 28,
+          fontFamily: "system-ui, sans-serif", color: "rgba(255,255,255,0.55)", fontSize: 11,
+          letterSpacing: "0.12em", textTransform: "uppercase",
+          background: "rgba(5,10,20,0.55)", backdropFilter: "blur(8px)",
+          padding: "4px 12px", borderRadius: 20,
+          border: "1px solid rgba(255,255,255,0.08)",
+        }}>
+          Live Monitor · {TABS.find(t=>t.key===body)?.label}
+        </div>
+      )}
     </div>
   );
 }

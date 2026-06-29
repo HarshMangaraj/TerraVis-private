@@ -1,0 +1,23 @@
+{
+  "pages": {
+    "/models/cloud-detection/page": [
+      "static/chunks/6c7f9_liss-dashboard-codebase_tar_liss-dashboard-codebase_app_globals_2ce8e9fd.css",
+      "static/chunks/5d3b5__pnpm_b0b9dbb3._.js",
+      "static/chunks/Downloads_liss-dashboard-codebase_tar_liss-dashboard-codebase_f7162108._.js",
+      "static/chunks/6c7f9_liss-dashboard-codebase_tar_liss-dashboard-codebase_app_layout_tsx_9b70aeea._.js",
+      "static/chunks/66542_next_dist_client_components_builtin_global-error_76c0c07b.js",
+      "static/chunks/Downloads_liss-dashboard-codebase_tar_liss-dashboard-codebase_7aa92dd2._.js",
+      "static/chunks/3340d_lucide-react_dist_esm_icons_330e623d._.js",
+      "static/chunks/0564e_tar_liss-dashboard-codebase_app_models_cloud-detection_page_tsx_76c0c07b._.js",
+      "static/chunks/[turbopack]_browser_dev_hmr-client_hmr-client_ts_4b2fa5f0._.js",
+      "static/chunks/66542_next_dist_compiled_react-dom_a58fe336._.js",
+      "static/chunks/66542_next_dist_compiled_next-devtools_index_b7eedd59.js",
+      "static/chunks/66542_next_dist_compiled_859c5d87._.js",
+      "static/chunks/66542_next_dist_client_1c0e5dd4._.js",
+      "static/chunks/66542_next_dist_26257a7a._.js",
+      "static/chunks/86f13_@swc_helpers_cjs_8c3ae004._.js",
+      "static/chunks/Downloads_liss-dashboard-codebase_tar_liss-dashboard-codebase_a0ff3932._.js",
+      "static/chunks/turbopack-Downloads_liss-dashboard-codebase_tar_liss-dashboard-codebase_b5c217b7._.js"
+    ]
+  }
+}

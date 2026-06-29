@@ -1018,7 +1018,7 @@ export default function MonitoringPage() {
             >
               <div className="grid grid-cols-1 gap-5 md:grid-cols-[1fr_280px]">
                 {/* 3D Scene */}
-                <div className="rounded-xl overflow-hidden" style={{ minHeight: 320 }}>
+                <div className="rounded-xl overflow-hidden relative" style={{ minHeight: 320 }}>
                   <MonitoringScene body={activeBody as SpaceBodyKey} />
                 </div>
 

@@ -1,5 +1,7 @@
-import { Sidebar } from "./sidebar";
-import { Header } from "./header";
+"use client";
+
+import { useEffect } from "react";
+import { useLayoutContext } from "./context";
 
 interface ShellProps {
   title: string;
@@ -8,15 +10,14 @@ interface ShellProps {
 }
 
 export function Shell({ title, subtitle, children }: ShellProps) {
-  return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar />
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <Header title={title} subtitle={subtitle} />
-        <main className="flex-1 overflow-y-auto p-5">
-          {children}
-        </main>
-      </div>
-    </div>
-  );
+  const { setTitle, setSubtitle } = useLayoutContext();
+
+  useEffect(() => {
+    setTitle(title);
+    if (subtitle) setSubtitle(subtitle);
+  }, [title, subtitle, setTitle, setSubtitle]);
+
+  // The actual layout DOM (Sidebar, Header) has been moved to app/layout.tsx
+  // so that it persists across Next.js page navigations, avoiding expensive re-mounts.
+  return <>{children}</>;
 }
