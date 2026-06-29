@@ -62,7 +62,7 @@ const EARTH_FRAG = /* glsl */`
 
 
 
-function EarthMesh() {
+function EarthMesh({ onGlobeClick }: { onGlobeClick?: (lat: number, lng: number) => void }) {
   const earthRef  = useRef<THREE.Mesh>(null!);
   const cloudsRef = useRef<THREE.Mesh>(null!);
 
@@ -86,13 +86,23 @@ function EarthMesh() {
 
 
   useFrame((_, dt) => {
-    earthRef.current.rotation.y  += dt * 0.04;
+    earthRef.current.rotation.y += dt * 0.05;
     cloudsRef.current.rotation.y += dt * 0.055;
   });
 
+  const handleClick = (e: any) => {
+    e.stopPropagation();
+    if (!onGlobeClick || !earthRef.current) return;
+    const localPoint = earthRef.current.worldToLocal(e.point.clone());
+    const r = localPoint.length();
+    const lat = (Math.asin(localPoint.y / r) * 180) / Math.PI;
+    const lng = (Math.atan2(localPoint.x, localPoint.z) * 180) / Math.PI;
+    onGlobeClick(parseFloat(lat.toFixed(4)), parseFloat(lng.toFixed(4)));
+  };
+
   return (
     <group>
-      <mesh ref={earthRef} castShadow>
+      <mesh ref={earthRef} onClick={handleClick} castShadow>
         <sphereGeometry args={[2, 96, 96]} />
         <primitive object={earthMat} attach="material" />
       </mesh>
@@ -236,7 +246,7 @@ const SAT_CONFIGS = [
   { orbitR: 2.65, speed: 0.36, tiltX: -0.72, tiltZ: 0.1, phase: 4.19, color: "#facc15" },
 ];
 
-function Scene() {
+function Scene({ onGlobeClick }: { onGlobeClick?: (lat: number, lng: number) => void }) {
   return (
     <>
       <ambientLight intensity={0.04} />
@@ -244,7 +254,7 @@ function Scene() {
       <directionalLight position={[-6, -2, -5]} intensity={0.03} color="#203050" />
       <Stars radius={90} depth={50} count={5000} factor={3.5} saturation={0.0} fade speed={0.3} />
       <Suspense fallback={null}>
-        <EarthMesh />
+        <EarthMesh onGlobeClick={onGlobeClick} />
         <AoiPin />
       </Suspense>
       {SAT_CONFIGS.map((cfg, i) => (
@@ -258,15 +268,15 @@ function Scene() {
   );
 }
 
-export function EarthScene() {
+export function EarthScene({ onGlobeClick }: { onGlobeClick?: (lat: number, lng: number) => void }) {
   return (
     <Canvas
       camera={{ position: [0, 1, 6.5], fov: 40 }}
       gl={{ antialias: true, alpha: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.1 }}
       shadows
-      style={{ width: "100%", height: "100%", background: "#050d1a" }}
+      style={{ width: "100%", height: "100%", background: "#050d1a", cursor: onGlobeClick ? "crosshair" : "grab" }}
     >
-      <Scene />
+      <Scene onGlobeClick={onGlobeClick} />
     </Canvas>
   );
 }

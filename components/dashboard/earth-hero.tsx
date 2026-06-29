@@ -9,6 +9,13 @@ const EarthScene = dynamic(
   { ssr: false }
 );
 
+const MonitoringScene = dynamic(
+  () => import("@/components/monitoring/monitoring-scene").then((m) => ({ default: m.MonitoringScene })),
+  { ssr: false }
+);
+
+import type { SpaceBodyKey } from "@/components/monitoring/monitoring-scene";
+
 function useWebGL() {
   const [hasWebGL, setHasWebGL] = useState<boolean | null>(null);
   useEffect(() => {
@@ -23,7 +30,7 @@ function useWebGL() {
   return hasWebGL;
 }
 
-export function EarthHero() {
+export function EarthHero({ activeBody = "earth", onGlobeClick }: { activeBody?: SpaceBodyKey; onGlobeClick?: (lat: number, lng: number) => void }) {
   const hasWebGL = useWebGL();
 
   return (
@@ -40,7 +47,18 @@ export function EarthHero() {
         </div>
       ) : hasWebGL ? (
         <div className="absolute inset-0">
-          <EarthScene />
+          {activeBody === "earth" ? (
+            <EarthScene onGlobeClick={onGlobeClick} />
+          ) : activeBody === "milky" ? (
+            <div className="flex h-full w-full flex-col items-center justify-center bg-[#050d1a] relative overflow-hidden">
+              <div className="absolute inset-0 opacity-40 bg-[url('https://images.unsplash.com/photo-1462331940025-496dfbfc7564?q=80&w=1000&auto=format&fit=crop')] bg-cover bg-center mix-blend-screen" />
+              <div className="z-10 animate-bounce text-8xl drop-shadow-2xl">👙</div>
+              <p className="z-10 mt-6 text-2xl font-bold text-pink-400 tracking-widest drop-shadow-md">GALACTIC BIKINI</p>
+              <p className="z-10 mt-2 text-sm text-pink-200/70">It gets hot near the galactic core.</p>
+            </div>
+          ) : (
+            <MonitoringScene body={activeBody} hideUI={true} />
+          )}
         </div>
       ) : (
         <div className="absolute inset-0 flex items-center justify-center bg-black/50 text-white text-sm">
