@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///C:/Users/ASUS/Downloads/liss-dashboard-codebase.tar/liss-dashboard-codebase/components/layout/shell.tsx"],"sourcesContent":["\"use client\";\n\nimport { useEffect } from \"react\";\nimport { useLayoutContext } from \"./context\";\n\ninterface ShellProps {\n  title: string;\n  subtitle?: string;\n  children: React.ReactNode;\n}\n\nexport function Shell({ title, subtitle, children }: ShellProps) {\n  const { setTitle, setSubtitle } = useLayoutContext();\n\n  useEffect(() => {\n    setTitle(title);\n    if (subtitle) setSubtitle(subtitle);\n  }, [title, subtitle, setTitle, setSubtitle]);\n\n  // The actual layout DOM (Sidebar, Header) has been moved to app/layout.tsx\n  // so that it persists across Next.js page navigations, avoiding expensive re-mounts.\n  return <>{children}</>;\n}\n"],"names":[],"mappings":";;;;;AAEA;AACA;;;AAHA;;;AAWO,SAAS,MAAM,KAAyC;QAAzC,EAAE,KAAK,EAAE,QAAQ,EAAE,QAAQ,EAAc,GAAzC;;IACpB,MAAM,EAAE,QAAQ,EAAE,WAAW,EAAE,GAAG,IAAA,6OAAgB;IAElD,IAAA,gYAAS;2BAAC;YACR,SAAS;YACT,IAAI,UAAU,YAAY;QAC5B;0BAAG;QAAC;QAAO;QAAU;QAAU;KAAY;IAE3C,2EAA2E;IAC3E,qFAAqF;IACrF,qBAAO;kBAAG;;AACZ;GAXgB;;QACoB,6OAAgB;;;KADpC","debugId":null}}]
-}

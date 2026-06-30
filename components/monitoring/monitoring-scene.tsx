@@ -393,7 +393,12 @@ function Earth({ onGlobeClick }: { onGlobeClick?: (lat: number, lng: number) => 
 
   return (
     <group>
-      <mesh ref={earthRef} onClick={handleClick} style={{ cursor: "pointer" }}>
+      <mesh 
+        ref={earthRef} 
+        onClick={handleClick} 
+        onPointerOver={() => { document.body.style.cursor = "crosshair"; }} 
+        onPointerOut={() => { document.body.style.cursor = "auto"; }}
+      >
         <sphereGeometry args={[1.8, 96, 96]} />
         <primitive object={mat} attach="material" />
       </mesh>

@@ -49,7 +49,7 @@ const statusStyle: Record<string, string> = {
 
 function StatCard({
   icon: Icon, label, value, sub, color,
-}: { icon: React.ElementType; label: string; value: string; sub: string; color: string }) {
+}: { icon: React.ComponentType<any>; label: string; value: string; sub: string; color: string }) {
   return (
     <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
       <div className="flex items-start justify-between mb-1">

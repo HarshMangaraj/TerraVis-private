@@ -16,10 +16,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <head>
-        {/* Preload Three.js planet textures so they are already in browser cache
-            when the WebGL canvas initialises — eliminates the texture-load stall */}
         <link rel="preload" href="/planets/earth_atmos.jpg" as="image" />
         <link rel="preload" href="/planets/earth_normal.jpg" as="image" />
         <link rel="preload" href="/planets/earth_clouds.png" as="image" />

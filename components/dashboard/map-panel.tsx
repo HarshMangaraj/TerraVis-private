@@ -1,289 +1,484 @@
 "use client";
 
-import { scenes, type SceneStatus } from "@/lib/mock-data";
-import { useState } from "react";
-import { MapPin, X, Satellite, ExternalLink, Loader2 } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Search, Plus, Minus, Compass, Layers, Edit2, Target } from "lucide-react";
 
-const STATUS_COLOR: Record<SceneStatus, string> = {
-  Completed: "var(--color-success)",
-  Processing: "var(--color-primary)",
-  Failed: "var(--color-destructive)",
-  "In Queue": "var(--color-info)",
-};
+// Constants for map dimensions and tile math
+const TILE_SIZE = 256;
+const INITIAL_ZOOM = 8;
+const MIN_ZOOM = 6;
+const MAX_ZOOM = 14;
+const WORLD_SIZE = 256;
 
-const STATUS_LABEL_CLASS: Record<SceneStatus, string> = {
-  Completed:  "bg-success/10 text-success border-success/25",
-  Processing: "bg-primary/10 text-primary border-primary/25",
-  Failed:     "bg-destructive/10 text-destructive border-destructive/25",
-  "In Queue": "bg-info/10 text-info border-info/25",
-};
+// Northeast India center coordinates
+const CENTER_LAT = 26.2006;
+const CENTER_LNG = 92.9376;
 
-const BBOX = { minLng: 87.5, maxLng: 97.5, minLat: 21.5, maxLat: 29.5 };
-function project(lat: number, lng: number) {
-  const x = ((lng - BBOX.minLng) / (BBOX.maxLng - BBOX.minLng)) * 100;
-  const y = (1 - (lat - BBOX.minLat) / (BBOX.maxLat - BBOX.minLat)) * 100;
-  return { x, y };
-}
-
-const extras = [
-  { id: "EX-1", lat: 26.1, lng: 91.7, status: "Completed" as SceneStatus, name: "Guwahati_W01" },
-  { id: "EX-2", lat: 27.1, lng: 93.6, status: "Completed" as SceneStatus, name: "Tezpur_N12" },
-  { id: "EX-3", lat: 25.0, lng: 94.5, status: "Processing" as SceneStatus, name: "Kohima_B08" },
-  { id: "EX-4", lat: 24.0, lng: 92.5, status: "In Queue" as SceneStatus, name: "Silchar_L04" },
-  { id: "EX-5", lat: 23.8, lng: 91.3, status: "Completed" as SceneStatus, name: "Agartala_P05" },
-  { id: "EX-6", lat: 28.2, lng: 95.9, status: "Failed" as SceneStatus, name: "Tezu_X06" },
-  { id: "EX-7", lat: 26.9, lng: 94.8, status: "Completed" as SceneStatus, name: "Jorhat_G07" },
-  { id: "EX-8", lat: 25.3, lng: 92.7, status: "Processing" as SceneStatus, name: "Haflong_M08" },
-];
-const allPoints = [
-  ...scenes.map((s) => ({ id: s.id, lat: s.lat, lng: s.lng, status: s.status, name: s.name })),
-  ...extras,
-];
-
-type Point = (typeof allPoints)[number];
-
-// ─── Satellite Map Modal ──────────────────────────────────────────────────────
-function SatelliteModal({ point, onClose }: { point: Point; onClose: () => void }) {
-  const [loaded, setLoaded] = useState(false);
-  // Esri World Imagery tiles work without API key via iframe embed
-  const mapSrc = `https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d20000!2d${point.lng}!3d${point.lat}!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e1!3m2!1sen!2sin!4v1`;
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)" }}
-      onClick={onClose}
-    >
-      <div
-        className="relative w-full max-w-3xl rounded-2xl overflow-hidden border border-border shadow-2xl"
-        style={{ background: "#0d1117" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border/50">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 border border-primary/25">
-              <Satellite className="h-4 w-4 text-primary" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <p className="text-sm font-bold text-foreground">{point.name}</p>
-                <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold ${STATUS_LABEL_CLASS[point.status]}`}>
-                  {point.status}
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {point.lat.toFixed(4)}° N, {point.lng.toFixed(4)}° E · LISS-IV Scene Location
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <a
-              href={`https://www.google.com/maps/@${point.lat},${point.lng},13z/data=!3m1!1e3`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:border-primary/30 transition-all"
-            >
-              <ExternalLink className="h-3 w-3" />
-              Open in Maps
-            </a>
-            <button
-              onClick={onClose}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* Satellite iframe */}
-        <div className="relative" style={{ height: 460 }}>
-          {!loaded && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#0d1117]">
-              <Loader2 className="h-7 w-7 animate-spin text-primary/60" />
-              <p className="text-xs text-muted-foreground">Loading satellite imagery…</p>
-            </div>
-          )}
-          <iframe
-            src={mapSrc}
-            width="100%"
-            height="100%"
-            style={{ border: 0, display: "block" }}
-            allowFullScreen
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-            onLoad={() => setLoaded(true)}
-            title={`Satellite view of ${point.name}`}
-          />
-        </div>
-
-        {/* Footer info bar */}
-        <div className="flex items-center gap-6 px-5 py-3 border-t border-border/50 bg-muted/20">
-          {[
-            { label: "Coordinates", value: `${point.lat.toFixed(4)}°N  ${point.lng.toFixed(4)}°E` },
-            { label: "Scene ID", value: point.id },
-            { label: "Status", value: point.status },
-            { label: "Sensor", value: "LISS-IV MX" },
-          ].map(({ label, value }) => (
-            <div key={label}>
-              <p className="text-[9px] uppercase tracking-wider text-muted-foreground">{label}</p>
-              <p className="text-xs font-semibold text-foreground">{value}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── MapPanel ─────────────────────────────────────────────────────────────────
 export function MapPanel({
   externalSelectedCoord,
-  onClearExternalCoord
+  onClearExternalCoord,
 }: {
   externalSelectedCoord?: { lat: number; lng: number } | null;
   onClearExternalCoord?: () => void;
 } = {}) {
-  const [hover, setHover] = useState<string | null>(null);
-  const [internalSelected, setInternalSelected] = useState<Point | null>(null);
+  const [layers, setLayers] = useState({
+    lissIv: true,
+    sentinel1: true,
+    cloudMask: true,
+    aoiBoundary: true,
+    roads: true,
+    rivers: true,
+    dem: false,
+    landCover: false,
+  });
 
-  const selectedPoint = internalSelected || (externalSelectedCoord ? {
-    id: "3D-CLICK",
-    name: "3D Globe Location",
-    lat: externalSelectedCoord.lat,
-    lng: externalSelectedCoord.lng,
-    status: "Completed" as SceneStatus,
-  } : null);
+  const [zoom, setZoom] = useState(INITIAL_ZOOM);
+  const [center, setCenter] = useState({ x: CENTER_LNG, y: CENTER_LAT });
+  const [dragging, setDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<HTMLDivElement>(null);
 
-  const handleCloseModal = () => {
-    setInternalSelected(null);
-    onClearExternalCoord?.();
-  };
+  // Convert lat/lng to pixel coordinates
+  const latLngToPixel = useCallback((lat: number, lng: number, zoom: number) => {
+    const scale = Math.pow(2, zoom);
+    const worldSize = TILE_SIZE * scale;
+    
+    const x = ((lng + 180) / 360) * worldSize;
+    const latRad = (lat * Math.PI) / 180;
+    const y = ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * worldSize;
+    
+    return { x, y };
+  }, []);
+
+  // Convert pixel coordinates to lat/lng
+  const pixelToLatLng = useCallback((px: number, py: number, zoom: number) => {
+    const scale = Math.pow(2, zoom);
+    const worldSize = TILE_SIZE * scale;
+    
+    const lng = (px / worldSize) * 360 - 180;
+    const n = Math.PI - (2 * Math.PI * py) / worldSize;
+    const lat = (180 / Math.PI) * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+    
+    return { lat, lng };
+  }, []);
+
+  // Generate tile URLs
+  const getTileUrl = useCallback((x: number, y: number, z: number) => {
+    // ESRI World Imagery (high quality satellite)
+    return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
+  }, []);
+
+  // Handle zoom
+  const handleZoom = useCallback((delta: number, mouseX?: number, mouseY?: number) => {
+    setZoom(prev => {
+      const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, prev + delta));
+      return newZoom;
+    });
+  }, []);
+
+  // Handle mouse wheel for zoom
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -1 : 1;
+    handleZoom(delta);
+  }, [handleZoom]);
+
+  // Handle mouse down for dragging
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button === 0) { // Left click
+      setDragging(true);
+      setDragStart({ x: e.clientX, y: e.clientY });
+    }
+  }, []);
+
+  // Handle mouse move for dragging
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    setMousePos({ x: e.clientX, y: e.clientY });
+    
+    if (dragging) {
+      const dx = e.clientX - dragStart.x;
+      const dy = e.clientY - dragStart.y;
+      
+      const scale = Math.pow(2, zoom);
+      const worldSize = TILE_SIZE * scale;
+      const containerWidth = containerRef.current?.clientWidth || 400;
+      const containerHeight = containerRef.current?.clientHeight || 430;
+      
+      const pixelDx = (dx / containerWidth) * worldSize;
+      const pixelDy = (dy / containerHeight) * worldSize;
+      
+      setCenter(prev => {
+        const currentPixel = latLngToPixel(prev.y, prev.x, zoom);
+        const newPixel = {
+          x: currentPixel.x - pixelDx,
+          y: currentPixel.y - pixelDy
+        };
+        const newLatLng = pixelToLatLng(newPixel.x, newPixel.y, zoom);
+        return { x: newLatLng.lng, y: newLatLng.lat };
+      });
+      
+      setDragStart({ x: e.clientX, y: e.clientY });
+    }
+  }, [dragging, dragStart, zoom, latLngToPixel, pixelToLatLng]);
+
+  // Handle mouse up
+  const handleMouseUp = useCallback(() => {
+    setDragging(false);
+  }, []);
+
+  // Calculate visible tiles
+  const getVisibleTiles = useCallback(() => {
+    if (!containerRef.current) return [];
+    
+    const containerWidth = containerRef.current.clientWidth;
+    const containerHeight = containerRef.current.clientHeight;
+    
+    const centerPixel = latLngToPixel(center.y, center.x, zoom);
+    
+    const tilesX = Math.ceil(containerWidth / TILE_SIZE) + 2;
+    const tilesY = Math.ceil(containerHeight / TILE_SIZE) + 2;
+    
+    const centerTileX = Math.floor(centerPixel.x / TILE_SIZE);
+    const centerTileY = Math.floor(centerPixel.y / TILE_SIZE);
+    
+    const tiles = [];
+    
+    for (let dx = -Math.floor(tilesX / 2); dx <= Math.floor(tilesX / 2); dx++) {
+      for (let dy = -Math.floor(tilesY / 2); dy <= Math.floor(tilesY / 2); dy++) {
+        const tileX = centerTileX + dx;
+        const tileY = centerTileY + dy;
+        
+        if (tileX >= 0 && tileX < Math.pow(2, zoom) && tileY >= 0 && tileY < Math.pow(2, zoom)) {
+          const tilePixelX = tileX * TILE_SIZE - centerPixel.x + containerWidth / 2;
+          const tilePixelY = tileY * TILE_SIZE - centerPixel.y + containerHeight / 2;
+          
+          tiles.push({
+            x: tileX,
+            y: tileY,
+            z: zoom,
+            url: getTileUrl(tileX, tileY, zoom),
+            pixelX: tilePixelX,
+            pixelY: tilePixelY
+          });
+        }
+      }
+    }
+    
+    return tiles;
+  }, [center, zoom, latLngToPixel, getTileUrl]);
+
+  const visibleTiles = getVisibleTiles();
+
+  const toggleLayer = (key: keyof typeof layers) =>
+    setLayers((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const currentPixel = latLngToPixel(CENTER_LAT, CENTER_LNG, zoom);
 
   return (
-    <>
-      <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h3 className="text-sm font-semibold text-foreground">Scene Geography</h3>
-            <p className="text-xs text-muted-foreground">Northeast India · {allPoints.length} active captures · click a pin to explore</p>
-          </div>
-          <MapPin className="h-4 w-4 text-primary shrink-0" />
-        </div>
-
-        <div className="mb-3 flex flex-wrap items-center gap-3 text-[11px]">
-          {(Object.keys(STATUS_COLOR) as SceneStatus[]).map((s) => (
-            <div key={s} className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full" style={{ background: STATUS_COLOR[s] }} />
-              <span className="text-muted-foreground">{s}</span>
-            </div>
-          ))}
-        </div>
-
-        <div
-          className="relative w-full overflow-hidden rounded-xl border border-border shadow-inner"
-          style={{
-            height: 260,
-            background: "linear-gradient(135deg, oklch(0.88 0.04 220), oklch(0.85 0.06 240) 50%, oklch(0.87 0.04 250))",
-          }}
-        >
-          <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full pointer-events-none">
-            <defs>
-              <pattern id="mapgrid" width="5" height="5" patternUnits="userSpaceOnUse">
-                <path d="M 5 0 L 0 0 0 5" fill="none" stroke="oklch(0.72 0.04 240)" strokeWidth="0.15" opacity="0.5" />
-              </pattern>
-            </defs>
-            <rect width="100" height="100" fill="url(#mapgrid)" />
-            <path
-              d="M 8,42 L 18,30 L 28,22 L 42,18 L 58,14 L 72,18 L 86,28 L 92,42 L 88,58 L 82,72 L 70,82 L 54,86 L 38,82 L 22,74 L 12,60 Z"
-              fill="oklch(0.78 0.06 200 / 0.5)"
-              stroke="oklch(0.50 0.16 195)"
-              strokeWidth="0.5"
-              strokeOpacity="0.6"
-            />
-            {[25, 27].map((lat) => {
-              const y = (1 - (lat - BBOX.minLat) / (BBOX.maxLat - BBOX.minLat)) * 100;
-              return (
-                <text key={lat} x="1" y={y} fontSize="2.5" fill="oklch(0.50 0.04 240)" opacity="0.7">{lat}°N</text>
-              );
-            })}
-          </svg>
-
-          {allPoints.map((p) => {
-            const { x, y } = project(p.lat, p.lng);
-            const color = STATUS_COLOR[p.status];
-            const isHovered = hover === p.id;
-            return (
-              <div
-                key={p.id}
-                className="absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer z-10"
-                style={{ left: `${x}%`, top: `${y}%` }}
-                onMouseEnter={() => setHover(p.id)}
-                onMouseLeave={() => setHover(null)}
-                onClick={() => setInternalSelected(p)}
-              >
-                {isHovered && (
-                  <span className="absolute inset-0 -m-3 animate-ping rounded-full opacity-30" style={{ background: color }} />
-                )}
-                <span
-                  className="relative block rounded-full ring-2 ring-white transition-all"
-                  style={{
-                    width: isHovered ? 14 : 10,
-                    height: isHovered ? 14 : 10,
-                    background: color,
-                    boxShadow: `0 0 ${isHovered ? 10 : 6}px ${color}`,
-                    transform: isHovered ? "scale(1.3)" : "scale(1)",
-                    transition: "all 0.2s ease",
-                  }}
-                />
-                {isHovered && (
-                  <div className="absolute left-1/2 top-full z-20 mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-border bg-popover px-2.5 py-1.5 text-[11px] shadow-xl pointer-events-none">
-                    <div className="font-semibold text-foreground">{p.name}</div>
-                    <div className="text-muted-foreground">{p.status} · {p.lat.toFixed(1)}°N {p.lng.toFixed(1)}°E</div>
-                    <div className="text-primary/70 text-[10px] mt-0.5">Click to open satellite view</div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
-          <style>{`
-            @keyframes scan {
-              0% { top: 0%; opacity: 0; }
-              5% { opacity: 0.4; }
-              95% { opacity: 0.4; }
-              100% { top: 100%; opacity: 0; }
-            }
-          `}</style>
-          <div
-            className="absolute inset-x-0 h-px opacity-40 pointer-events-none"
+    <div className="relative w-full h-[430px] rounded-xl border border-border overflow-hidden bg-[#07090e] shadow-sm group">
+      {/* Real Tiled Map */}
+      <div
+        ref={containerRef}
+        className="absolute inset-0 w-full h-full cursor-grab active:cursor-grabbing"
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onWheel={handleWheel}
+        style={{ userSelect: 'none' }}
+      >
+        {visibleTiles.map((tile, index) => (
+          <img
+            key={`${tile.z}-${tile.x}-${tile.y}-${index}`}
+            src={tile.url}
+            alt={`Map tile ${tile.x},${tile.y}`}
+            className="absolute"
             style={{
-              background: "linear-gradient(to right, transparent, oklch(0.50 0.16 195), transparent)",
-              animation: "scan 4s linear infinite",
-              top: "50%",
+              left: `${tile.pixelX}px`,
+              top: `${tile.pixelY}px`,
+              width: `${TILE_SIZE}px`,
+              height: `${TILE_SIZE}px`,
+              opacity: layers.lissIv ? 1 : 0.4,
+              imageRendering: 'auto'
+            }}
+            draggable={false}
+            onError={(e) => {
+              // Fallback to OSM tiles if ESRI fails
+              const target = e.target as HTMLImageElement;
+              if (!target.dataset.fallback) {
+                target.dataset.fallback = 'true';
+                target.src = `https://tile.openstreetmap.org/${tile.z}/${tile.x}/${tile.y}.png`;
+              }
             }}
           />
-        </div>
+        ))}
+      </div>
 
-        <div className="mt-3 grid grid-cols-4 gap-2">
+      {/* Dark vignette gradient */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(ellipse at center, transparent 55%, rgba(7,9,14,0.45) 100%)",
+        }}
+      />
+
+      {/* GIS SVG Overlays */}
+      <svg
+        className="absolute inset-0 h-full w-full pointer-events-none"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+      >
+        {/* AOI Polygon — Northeast India region */}
+        {layers.aoiBoundary && (
+          <>
+            <path
+              d="M 22,18 L 44,13 L 72,22 L 84,42 L 78,72 L 54,78 L 32,68 L 18,48 Z"
+              fill="rgba(16, 185, 129, 0.07)"
+              stroke="#10b981"
+              strokeWidth="0.7"
+              strokeDasharray="3,1.5"
+              className="drop-shadow-[0_0_6px_rgba(16,185,129,0.5)]"
+            />
+            {[
+              [22, 18], [44, 13], [72, 22], [84, 42],
+              [78, 72], [54, 78], [32, 68], [18, 48],
+            ].map(([x, y], i) => (
+              <circle
+                key={i}
+                cx={x}
+                cy={y}
+                r="0.9"
+                fill="#10b981"
+                opacity="0.9"
+              />
+            ))}
+          </>
+        )}
+
+        {/* Brahmaputra + tributaries */}
+        {layers.rivers && (
+          <g
+            stroke="#38bdf8"
+            fill="none"
+            opacity="0.75"
+            className="drop-shadow-[0_0_3px_rgba(56,189,248,0.5)]"
+          >
+            <path d="M 18,48 Q 28,52 38,44 T 58,62 T 80,70" strokeWidth="0.5" />
+            <path d="M 34,16 Q 42,28 54,34 T 74,24" strokeWidth="0.3" />
+            <path d="M 50,38 Q 54,52 56,78" strokeWidth="0.22" />
+            <path d="M 38,44 Q 35,55 30,65" strokeWidth="0.22" />
+          </g>
+        )}
+
+        {/* Highway network */}
+        {layers.roads && (
+          <g stroke="#f87171" strokeWidth="0.25" fill="none" opacity="0.7">
+            <path d="M 22,18 L 80,70" />
+            <path d="M 18,48 L 84,42" />
+            <path d="M 54,14 L 32,68" />
+            <path d="M 44,13 L 54,78" strokeDasharray="1.5,1" />
+          </g>
+        )}
+
+        {/* Cloud mask patches */}
+        {layers.cloudMask && (
+          <g fill="rgba(241,245,249,0.35)" stroke="rgba(241,245,249,0.5)" strokeWidth="0.3">
+            <ellipse cx="36" cy="32" rx="9" ry="6" className="blur-[1px]" />
+            <ellipse cx="68" cy="56" rx="7" ry="5" className="blur-[1px]" />
+            <path
+              d="M 28,30 Q 31,24 38,26 Q 43,23 46,30 Q 52,29 50,37 Q 45,41 36,39 Q 28,42 28,30 Z"
+              className="blur-[1.5px]"
+            />
+          </g>
+        )}
+
+        {/* Land Cover */}
+        {layers.landCover && (
+          <path
+            d="M 54,14 L 72,22 L 84,42 L 78,72 Z"
+            fill="rgba(168,85,247,0.12)"
+            stroke="#a855f7"
+            strokeWidth="0.4"
+            strokeDasharray="2,1.5"
+          />
+        )}
+
+        {/* DEM */}
+        {layers.dem && (
+          <path
+            d="M 22,18 L 44,13 L 72,22 L 32,68 Z"
+            fill="rgba(234,179,8,0.12)"
+            stroke="#eab308"
+            strokeWidth="0.4"
+          />
+        )}
+
+        {/* AOI Center crosshair */}
+        {layers.aoiBoundary && (
+          <g stroke="#10b981" strokeWidth="0.4" opacity="0.8">
+            <line x1="51" y1="44" x2="51" y2="50" />
+            <line x1="48" y1="47" x2="54" y2="47" />
+            <circle cx="51" cy="47" r="3" fill="none" strokeDasharray="1,1" />
+          </g>
+        )}
+
+        {/* External coord pin */}
+        {externalSelectedCoord && (
+          <g>
+            <circle cx="51" cy="47" r="1.5" fill="#ef4444" className="animate-ping" opacity="0.6" />
+            <circle cx="51" cy="47" r="0.8" fill="#ef4444" />
+          </g>
+        )}
+      </svg>
+
+      {/* Top: Search bar */}
+      <div className="absolute top-3 left-3 right-3 flex items-center gap-2 z-10">
+        <div className="relative flex-1 max-w-[280px]">
+          <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+          <input
+            type="text"
+            defaultValue="Northeast India, LISS-IV AOI"
+            className="w-full rounded-lg border border-border bg-[#0a0d14]/90 px-8 py-1.5 text-xs text-foreground placeholder-muted-foreground/70 focus:outline-none focus:border-indigo-500/50 backdrop-blur-sm shadow-md"
+          />
+        </div>
+        <div className="rounded-lg border border-[#10b981]/30 bg-[#0a0d14]/90 px-2.5 py-1.5 text-[9px] font-bold text-[#10b981] backdrop-blur-sm">
+          LIVE
+          <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-[#10b981] animate-pulse" />
+        </div>
+      </div>
+
+      {/* Left: Layer control */}
+      <div className="absolute top-14 left-3 z-10 w-[168px] rounded-lg border border-border bg-[#0a0d14]/90 p-2.5 backdrop-blur-sm shadow-md">
+        <div className="flex items-center gap-1.5 mb-2">
+          <Layers className="h-3 w-3 text-muted-foreground" />
+          <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Layers
+          </h4>
+        </div>
+        <div className="flex flex-col gap-1.5">
           {[
-            { label: "Completed", count: allPoints.filter(p => p.status === "Completed").length, color: "text-success" },
-            { label: "Processing", count: allPoints.filter(p => p.status === "Processing").length, color: "text-primary" },
-            { label: "In Queue", count: allPoints.filter(p => p.status === "In Queue").length, color: "text-info" },
-            { label: "Failed", count: allPoints.filter(p => p.status === "Failed").length, color: "text-destructive" },
-          ].map(({ label, count, color }) => (
-            <div key={label} className="rounded-lg bg-muted/50 border border-border/60 p-2 text-center">
-              <div className={`text-base font-bold ${color}`}>{count}</div>
-              <div className="text-[10px] text-muted-foreground">{label}</div>
-            </div>
+            { key: "lissIv",      label: "LISS-IV Image",    dot: "#818cf8" },
+            { key: "sentinel1",   label: "Sentinel-1 (SAR)", dot: "#60a5fa" },
+            { key: "cloudMask",   label: "Cloud Mask",       dot: "#f1f5f9" },
+            { key: "aoiBoundary", label: "AOI Boundary",     dot: "#10b981" },
+            { key: "roads",       label: "Roads",             dot: "#f87171" },
+            { key: "rivers",      label: "Rivers",            dot: "#38bdf8" },
+            { key: "dem",         label: "DEM",               dot: "#eab308" },
+            { key: "landCover",   label: "Land Cover",        dot: "#a855f7" },
+          ].map((item) => (
+            <label
+              key={item.key}
+              className="flex items-center gap-2 text-[10px] font-semibold text-foreground hover:text-white cursor-pointer select-none"
+            >
+              <div
+                className={`h-3 w-3 rounded-sm border border-border flex items-center justify-center transition-all ${
+                  layers[item.key as keyof typeof layers]
+                    ? "bg-[#5b4bfb]"
+                    : "bg-[#10141d]"
+                }`}
+                onClick={() => toggleLayer(item.key as keyof typeof layers)}
+              >
+                {layers[item.key as keyof typeof layers] && (
+                  <svg viewBox="0 0 10 10" className="h-2 w-2">
+                    <polyline
+                      points="1.5,5 3.5,8 8.5,2"
+                      fill="none"
+                      stroke="white"
+                      strokeWidth="1.8"
+                    />
+                  </svg>
+                )}
+              </div>
+              <span
+                className="h-2 w-2 rounded-full shrink-0"
+                style={{ backgroundColor: item.dot }}
+              />
+              <span>{item.label}</span>
+            </label>
           ))}
         </div>
       </div>
 
-      {/* Satellite modal */}
-      {selectedPoint && (
-        <SatelliteModal point={selectedPoint} onClose={handleCloseModal} />
-      )}
-    </>
+      {/* Right: Zoom & tools */}
+      <div className="absolute top-14 right-3 z-10 flex flex-col gap-1.5">
+        {[
+          { icon: Plus,    title: "Zoom In",    action: () => handleZoom(1) },
+          { icon: Minus,   title: "Zoom Out",   action: () => handleZoom(-1) },
+          { icon: Compass, title: "Recenter",   action: () => setCenter({ x: CENTER_LNG, y: CENTER_LAT }) },
+          { icon: Target,  title: "Pin AOI",    action: () => {} },
+          { icon: Edit2,   title: "Draw Tool",  action: () => {} },
+        ].map((btn, idx) => (
+          <button
+            key={idx}
+            title={btn.title}
+            onClick={btn.action}
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-[#0a0d14]/90 text-muted-foreground hover:text-white hover:bg-[#141924] backdrop-blur-sm shadow-md transition-all cursor-pointer"
+          >
+            <btn.icon className="h-3.5 w-3.5" />
+          </button>
+        ))}
+        {/* Zoom indicator */}
+        <div className="flex h-7 items-center justify-center rounded-lg border border-border bg-[#0a0d14]/90 px-2 text-[9px] font-mono text-muted-foreground backdrop-blur-sm">
+          z{zoom}
+        </div>
+      </div>
+
+      {/* Bottom-left: HUD coords + scale */}
+      <div className="absolute bottom-3 left-3 z-10 rounded-lg bg-[#0a0d14]/90 border border-border px-2.5 py-1.5 backdrop-blur-sm text-[9px] font-mono text-muted-foreground shadow-md">
+        <div className="flex gap-3 mb-1">
+          <span>
+            Lat: <span className="text-foreground font-bold">{center.y.toFixed(3)}° N</span>
+          </span>
+          <span>
+            Lon: <span className="text-foreground font-bold">{center.x.toFixed(3)}° E</span>
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 border-t border-border/40 pt-1">
+          <div className="flex items-center">
+            <div className="h-0.5 w-5 bg-muted-foreground" />
+            <div className="h-1 w-0.5 bg-muted-foreground" />
+          </div>
+          <div className="flex items-center">
+            <div className="h-0.5 w-5 bg-muted-foreground" />
+            <div className="h-1 w-0.5 bg-muted-foreground" />
+          </div>
+          <span>50 km</span>
+        </div>
+      </div>
+
+      {/* Bottom-right: Inset India locator map */}
+      <div className="absolute bottom-3 right-3 z-10 rounded-lg bg-[#0a0d14]/90 border border-border p-1 backdrop-blur-sm shadow-md overflow-hidden h-[72px] w-[72px]">
+        <svg className="h-full w-full" viewBox="0 0 100 120" fill="none">
+          {/* India outline */}
+          <path
+            d="M 30,10 L 40,8 L 52,16 L 54,26 L 62,36 L 76,33 L 82,40 L 80,52 L 70,55 L 57,63 L 52,78 L 46,93 L 42,98 L 37,93 L 26,78 L 20,63 L 15,48 L 26,36 Z"
+            fill="rgba(99,102,241,0.12)"
+            stroke="rgba(148,163,184,0.6)"
+            strokeWidth="1.2"
+          />
+          {/* Northeast highlight box */}
+          <rect
+            x="64"
+            y="30"
+            width="18"
+            height="14"
+            fill="rgba(16,185,129,0.25)"
+            stroke="#10b981"
+            strokeWidth="0.8"
+          />
+          {/* NE label */}
+          <text x="70" y="40" fontSize="5" fill="#10b981" fontFamily="monospace">NE</text>
+        </svg>
+      </div>
+
+      {/* Sensor badge */}
+      <div className="absolute top-3 right-3 z-10 rounded-lg bg-[#0a0d14]/90 border border-[#5b4bfb]/40 px-2 py-1 backdrop-blur-sm text-[9px] font-mono text-indigo-400 shadow-md">
+        LISS-IV · 5.8m GSD
+      </div>
+    </div>
   );
 }
